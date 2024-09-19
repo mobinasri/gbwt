@@ -28,7 +28,7 @@
 
 #include <array>
 
-#include <gbwt/support.h>
+#include "support.h"
 
 namespace gbwt
 {

@@ -26,7 +26,7 @@
 #ifndef GBWT_SUPPORT_H
 #define GBWT_SUPPORT_H
 
-#include <gbwt/utils.h>
+#include "utils.h"
 
 #include <functional>
 #include <map>

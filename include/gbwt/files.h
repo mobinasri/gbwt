@@ -26,7 +26,7 @@
 #ifndef GBWT_FILES_H
 #define GBWT_FILES_H
 
-#include <gbwt/utils.h>
+#include "utils.h"
 
 namespace gbwt
 {

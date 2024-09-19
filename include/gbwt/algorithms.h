@@ -26,7 +26,7 @@
 #ifndef GBWT_ALGORITHMS_H
 #define GBWT_ALGORITHMS_H
 
-#include <gbwt/support.h>
+#include "support.h"
 
 namespace gbwt
 {
