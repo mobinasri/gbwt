@@ -1182,7 +1182,7 @@ RecordArray::sanityChecks() const
 {
   if(this->index.size() != this->data.size())
   {
-    throw sdsl::simple_sds::InvalidData("RecordArray: Index / data size mismatch");
+    ABSL_LOG(FATAL) << "RecordArray: Index / data size mismatch";
   }
 }
 
@@ -1537,15 +1537,15 @@ DASamples::sanityChecks() const
 {
   if(this->record_rank(this->sampled_records.size()) != this->bwt_ranges.ones())
   {
-    throw sdsl::simple_sds::InvalidData("DASamples: Sampled record / BWT range count mismatch");
+    ABSL_LOG(FATAL) << "DASamples: Sampled record / BWT range count mismatch";
   }
   if(this->bwt_ranges.size() != this->sampled_offsets.size())
   {
-    throw sdsl::simple_sds::InvalidData("DASamples: BWT range / sampled offsets size mismatch");
+    ABSL_LOG(FATAL) << "DASamples: BWT range / sampled offsets size mismatch";
   }
   if(this->sampled_offsets.ones() != this->array.size())
   {
-    throw sdsl::simple_sds::InvalidData("DASamples: Sampled offset / sample count mismatch");
+    ABSL_LOG(FATAL) << "DASamples: Sampled offset / sample count mismatch";
   }
 }
 
@@ -1861,7 +1861,7 @@ StringArray::sanityChecks() const
 {
   if(this->index.size() == 0 || this->index[0] != 0 || this->index[this->index.size() - 1] != this->strings.size())
   {
-    throw sdsl::simple_sds::InvalidData("StringArray: Offsets and strings do not match");
+    ABSL_LOG(FATAL) << "StringArray: Offsets and strings do not match";
   }
 }
 
@@ -2027,7 +2027,7 @@ Dictionary::sanityChecks() const
 {
   if(this->sorted_ids.size() != this->strings.size())
   {
-    throw sdsl::simple_sds::InvalidData("Dictionary: Size mismatch between strings and sorted ids");
+    ABSL_LOG(FATAL) << "Dictionary: Size mismatch between strings and sorted ids";
   }
 }
 
@@ -2263,7 +2263,7 @@ Tags::build(const StringArray& source)
 {
   if(source.size() % 2 != 0)
   {
-    throw sdsl::simple_sds::InvalidData("Tags: Key without a value");
+    ABSL_LOG(FATAL) << "Tags: Key without a value";
   }
 
   this->tags.clear();
@@ -2276,7 +2276,7 @@ Tags::build(const StringArray& source)
 
   if(this->tags.size() != source.size() / 2)
   {
-    throw sdsl::simple_sds::InvalidData("Tags: Duplicate keys");
+    ABSL_LOG(FATAL) << "Tags: Duplicate keys";
   }
 }
 

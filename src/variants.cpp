@@ -204,13 +204,13 @@ VariantPaths::check() const
 {
   if(this->tag != TAG)
   {
-    throw sdsl::simple_sds::InvalidData("VariantPaths: Invalid tag");
+    ABSL_LOG(FATAL) << "VariantPaths: Invalid tag";
   }
 
   if(this->version != VERSION)
   {
     std::string msg = "VariantPaths: Expected v" + std::to_string(VERSION) + ", got v" + std::to_string(this->version);
-    throw sdsl::simple_sds::InvalidData(msg);
+    ABSL_LOG(FATAL) << msg;
   }
 
   std::uint64_t mask = 0;
@@ -221,7 +221,7 @@ VariantPaths::check() const
   }
   if((this->flags & mask) != this->flags)
   {
-    throw sdsl::simple_sds::InvalidData("VariantPaths: Invalid flags");
+    ABSL_LOG(FATAL) << "VariantPaths: Invalid flags";
   }
 }
 

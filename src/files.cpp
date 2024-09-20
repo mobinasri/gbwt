@@ -104,13 +104,13 @@ GBWTHeader::check() const
 {
   if(this->tag != TAG)
   {
-    throw sdsl::simple_sds::InvalidData("GBWTHeader: Invalid tag");
+    ABSL_LOG(FATAL) << "GBWTHeader: Invalid tag";
   }
 
   if(this->version > VERSION || this->version < OLD_VERSION)
   {
     std::string msg = "GBWTHeader: Expected v" + std::to_string(OLD_VERSION) + " to v" + std::to_string(VERSION) + ", got v" + std::to_string(this->version);
-    throw sdsl::simple_sds::InvalidData(msg);
+    ABSL_LOG(FATAL) << msg;
   }
 
   std::uint64_t mask = 0;
@@ -129,7 +129,7 @@ GBWTHeader::check() const
   }
   if((this->flags & mask) != this->flags)
   {
-    throw sdsl::simple_sds::InvalidData("GBWTHeader: Invalid flags");
+    ABSL_LOG(FATAL) << "GBWTHeader: Invalid flags";
   }
 }
 
@@ -209,13 +209,13 @@ MetadataHeader::check() const
 {
   if(this->tag != TAG)
   {
-    throw sdsl::simple_sds::InvalidData("MetadataHeader: Invalid tag");
+    ABSL_LOG(FATAL) << "MetadataHeader: Invalid tag";
   }
 
   if(this->version > VERSION || this->version < INITIAL_VERSION)
   {
     std::string msg = "MetadataHeader: Expected v" + std::to_string(INITIAL_VERSION) + " to v" + std::to_string(VERSION) + ", got v" + std::to_string(this->version);
-    throw sdsl::simple_sds::InvalidData(msg);
+    ABSL_LOG(FATAL) << msg;
   }
 
   std::uint64_t mask = 0;
@@ -230,7 +230,7 @@ MetadataHeader::check() const
   }
   if((this->flags & mask) != this->flags)
   {
-    throw sdsl::simple_sds::InvalidData("MetadataHeader: Invalid flags");
+    ABSL_LOG(FATAL) << "MetadataHeader: Invalid flags";
   }
 }
 
@@ -239,13 +239,13 @@ MetadataHeader::check_simple_sds() const
 {
   if(this->tag != TAG)
   {
-    throw sdsl::simple_sds::InvalidData("MetadataHeader: Invalid tag");
+    ABSL_LOG(FATAL) << "MetadataHeader: Invalid tag";
   }
 
   if(this->version != VERSION)
   {
     std::string msg = "MetadataHeader: Expected v" + std::to_string(VERSION) + ", got v" + std::to_string(this->version);
-    throw sdsl::simple_sds::InvalidData(msg);
+    ABSL_LOG(FATAL) << msg;
   }
 
   std::uint64_t mask = 0;
@@ -256,7 +256,7 @@ MetadataHeader::check_simple_sds() const
   }
   if((this->flags & mask) != this->flags)
   {
-    throw sdsl::simple_sds::InvalidData("MetadataHeader: Invalid flags");
+    ABSL_LOG(FATAL) << "MetadataHeader: Invalid flags";
   }
 }
 
