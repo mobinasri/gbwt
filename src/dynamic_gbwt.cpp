@@ -23,6 +23,7 @@
   SOFTWARE.
 */
 
+#include "absl/log/absl_log.h"
 #include <gbwt/dynamic_gbwt.h>
 #include <gbwt/bwtmerge.h>
 

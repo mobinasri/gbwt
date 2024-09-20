@@ -22,6 +22,7 @@
   SOFTWARE.
 */
 
+#include "absl/log/absl_log.h"
 #include <gbwt/fast_locate.h>
 #include <gbwt/internal.h>
 

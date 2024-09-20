@@ -23,6 +23,7 @@
   SOFTWARE.
 */
 
+#include "absl/log/absl_log.h"
 #include <gbwt/files.h>
 
 namespace gbwt
