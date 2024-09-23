@@ -1158,12 +1158,14 @@ DynamicGBWT::remove(const std::vector<size_type>& seq_ids, size_type chunk_size)
   // Build the rank array.
   double ra_start = readTimer();
   std::vector<edge_type> ra;
-  std::vector<std::vector<edge_type>> buffers(omp_get_max_threads());
+  int threads = 1; //omp_get_max_threads();
+  std::vector<std::vector<edge_type>> buffers(threads);
   DecompressedRecord fast_endmarker = this->endmarker();
-  #pragma omp parallel for schedule(dynamic, chunk_size)
+  //#pragma omp parallel for schedule(dynamic, chunk_size)
   for(size_type i = 0; i < to_remove.size(); i++)
   {
-    std::vector<edge_type>& buffer = buffers[omp_get_thread_num()];
+    int thread_id = 0;//omp_get_thread_num();
+    std::vector<edge_type>& buffer = buffers[thread_id];
     buffer.push_back(edge_type(ENDMARKER, to_remove[i]));
     edge_type pos = fast_endmarker.LF(to_remove[i]);
     while(pos.first != ENDMARKER)
@@ -1171,7 +1173,7 @@ DynamicGBWT::remove(const std::vector<size_type>& seq_ids, size_type chunk_size)
       buffer.push_back(pos);
       pos = this->LF(pos);
     }
-    #pragma omp critical
+    //#pragma omp critical
     {
       ra.insert(ra.end(), buffer.begin(), buffer.end());
     }
@@ -1338,11 +1340,11 @@ buildRA(const DynamicGBWT& left, const DynamicGBWT& right, MergeBuffers& buffers
 {
   DecompressedRecord right_endmarker = right.endmarker();
 
-  #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
+  //#pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
   for(size_type sequence = 0; sequence < right.sequences(); sequence++)
   {
     // The new sequence will be after all existing sequences in 'left'.
-    size_type thread = omp_get_thread_num();
+    size_type thread = 0;//omp_get_thread_num();
     buffers.insert(edge_type(ENDMARKER, left.sequences()), thread);
 
     // Computing LF() at the endmarker can be expensive, so we do it using the incoming
@@ -1505,7 +1507,8 @@ DynamicGBWT::merge(const DynamicGBWT& source, const MergeParameters& parameters)
 
   // Build the rank array.
   double ra_start = readTimer();
-  MergeBuffers mb(source.size(), omp_get_max_threads(), parameters, node_ranges);
+  int threads = 1; //omp_get_max_threads();
+  MergeBuffers mb(source.size(), threads, parameters, node_ranges);
   buildRA(*this, source, mb);
   if(Verbosity::level >= Verbosity::BASIC)
   {
@@ -1515,7 +1518,7 @@ DynamicGBWT::merge(const DynamicGBWT& source, const MergeParameters& parameters)
 
   // Merge the records.
   double merge_start = readTimer();
-  #pragma omp parallel for schedule(static)
+  //#pragma omp parallel for schedule(static)
   for(size_type job = 0; job < node_ranges.size(); job++)
   {
     ProducerBuffer<RankArray> ra(*(mb.ra[job]));
