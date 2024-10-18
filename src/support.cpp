@@ -1952,10 +1952,6 @@ void StringArray<CharAllocatorType>::remove(size_type i)
   sdsl::util::bit_compress(this->index);
 }
 
-template <std::equality_comparable T, typename A1, typename A2>
-bool operator==(std::vector<T, A1> const& lhs, std::vector<T, A2> const& rhs) {
-    return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
-}
 
 template <typename CharAllocatorType>
 template <typename CharAllocatorTypeOther>
