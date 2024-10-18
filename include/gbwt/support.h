@@ -26,13 +26,27 @@
 #ifndef GBWT_SUPPORT_H
 #define GBWT_SUPPORT_H
 
+#include <boost/interprocess/creation_tags.hpp>
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/interprocess/allocators/allocator.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+
+#include <sdsl/int_vector.hpp>
+#include <sdsl/sd_vector.hpp>
+
 #include "utils.h"
 
 #include <functional>
 #include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace gbwt
 {
+
+namespace bi = boost::interprocess;
 
 /*
   support.h: Public support structures.
@@ -481,6 +495,7 @@ struct MergeParameters
   size_type merge_jobs;
 };
 
+
 //------------------------------------------------------------------------------
 
 /*
@@ -488,19 +503,24 @@ struct MergeParameters
   stored in an integer vector. This can be serialized and loaded much faster than
   an array of actual strings.
 */
+template <typename CharAllocatorType = std::allocator<char>>  // Default type is std::vector<char>
 class StringArray
 {
 public:
   typedef gbwt::size_type size_type;
 
-  StringArray() : index(1, 0, 1) {}
-  StringArray(const std::vector<std::string>& source);
-  StringArray(const std::map<std::string, std::string>& source);
-  StringArray(size_type n, const std::function<size_type(size_type)>& length, const std::function<view_type(size_type)>& sequence);
-  StringArray(size_type n, const std::function<bool(size_type)>& choose, const std::function<size_type(size_type)>& length, const std::function<view_type(size_type)>& sequence);
-  StringArray(size_type n, const std::function<size_type(size_type)>& length, const std::function<std::string(size_type)>& sequence);
+  StringArray(bi::managed_shared_memory* shared_memory = nullptr) : index(1, 0, 1), shared_memory(nullptr){}
+  StringArray(const std::vector<std::string>& source, bi::managed_shared_memory* shared_memory = nullptr);
+  StringArray(const std::map<std::string, std::string>& source, bi::managed_shared_memory* shared_memory = nullptr);
+  StringArray(size_type n, const std::function<size_type(size_type)>& length, const std::function<view_type(size_type)>& sequence, bi::managed_shared_memory* shared_memory = nullptr);
+  StringArray(size_type n, const std::function<bool(size_type)>& choose, const std::function<size_type(size_type)>& length, const std::function<view_type(size_type)>& sequence, bi::managed_shared_memory* shared_memory = nullptr);
+  StringArray(size_type n, const std::function<size_type(size_type)>& length, const std::function<std::string(size_type)>& sequence, bi::managed_shared_memory* shared_memory = nullptr);
 
-  void swap(StringArray& another);
+
+  ~StringArray() {}
+
+  template<typename CharAllocatorTypeOther>
+  void swap(StringArray<CharAllocatorTypeOther>& another);
 
   size_type serialize(std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "") const;
   void load(std::istream& in);
@@ -509,29 +529,40 @@ public:
   void simple_sds_load(std::istream& in);
   size_t simple_sds_size() const;
 
-  bool operator==(const StringArray& another) const;
-  bool operator!=(const StringArray& another) const;
+
+  template<typename CharAllocatorTypeOther>
+  bool operator==(const StringArray<CharAllocatorTypeOther>& another) const;
+
+  template<typename CharAllocatorTypeOther>
+  bool operator!=(const StringArray<CharAllocatorTypeOther>& another) const;
 
   size_type size() const { return this->index.size() - 1; }
   bool empty() const { return (this->size() == 0); }
-  size_type length() const { return this->strings.size(); }
+  size_type length() const { return this->strings->size(); }
   size_type length(size_type i) const { return (this->index[i + 1] - this->index[i]); }
   size_type length(size_type start, size_t limit) const { return (this->index[limit] - this->index[start]); }
 
   std::string str(size_type i) const
   {
-    return std::string(this->strings.data() + this->index[i], this->strings.data() + this->index[i + 1]);
+    return std::string(this->strings->data() + this->index[i], this->strings->data() + this->index[i + 1]);
   }
 
   view_type view(size_type i) const
   {
-    return view_type(this->strings.data() + this->index[i], this->length(i));
+    return view_type(this->strings->data() + this->index[i], this->length(i));
   }
 
   void remove(size_type i);
 
   sdsl::int_vector<0> index;
-  std::vector<char>   strings;
+  std::vector<char, CharAllocatorType>* strings;  // std::vector<char, SharedMemCharAllocatorType>
+  bi::managed_shared_memory* shared_memory;
+  SharedMemCharAllocatorType* shared_memory_char_allocator;
+  std::string strings_name_in_shared_memory;
+  bool is_strings_loaded_from_shared_memory = false;
+
+  void find_or_construct_strings_in_shared_memory();
+  void clear_strings_in_shared_memory();
 
 private:
   // Throws `sdsl::simple_sds::InvalidData` if the checks fail.
@@ -545,7 +576,7 @@ class Dictionary
 public:
   typedef gbwt::size_type size_type;
 
-  StringArray         strings;
+  StringArray<std::allocator<char>>        strings;
   sdsl::int_vector<0> sorted_ids; // String ids in sorted order.
 
   Dictionary();
@@ -661,7 +692,9 @@ public:
 
 private:
   void copy(const Tags& source);
-  void build(const StringArray& source);
+
+  template<typename CharAllocatorType>
+  void build(const StringArray<CharAllocatorType>& source);
   static std::string normalize(const std::string& key);
 };
 

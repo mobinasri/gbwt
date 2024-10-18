@@ -28,6 +28,9 @@
 
 #include <array>
 
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/interprocess/allocators/allocator.hpp>
 #include "support.h"
 
 namespace gbwt
@@ -102,10 +105,36 @@ serializeVector(const std::vector<Element>& data, std::ostream& out, sdsl::struc
   return written_bytes;
 }
 
+
+// Serialize an std::vector of integers or simple structs.
+template<class Element, class Allocator>
+size_type
+serializeVector(const std::vector<Element, Allocator>& data, std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "")
+{
+  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(data));
+  size_type written_bytes = 0;
+
+  size_type data_size = data.size();
+  written_bytes += sdsl::write_member(data_size, out, child, "size");
+
+  if(data_size > 0)
+  {
+    sdsl::structure_tree_node* data_node =
+      sdsl::structure_tree::add_child(child, "data", sdsl::util::class_name(data[0]));
+    DiskIO::write(out, data.data(), data_size);
+    sdsl::structure_tree::add_size(data_node, data_size * sizeof(Element));
+    written_bytes += data_size * sizeof(Element);
+  }
+
+  sdsl::structure_tree::add_size(child, written_bytes);
+  return written_bytes;
+}
+
+
 // Load an std::vector of integers.
-template<class Element>
+template<class Element, class Allocator>
 void
-loadVector(std::vector<Element>& data, std::istream& in)
+loadVector(std::vector<Element, Allocator>& data, std::istream& in)
 {
   size_type data_size = 0;
   sdsl::read_member(data_size, in);
@@ -116,6 +145,7 @@ loadVector(std::vector<Element>& data, std::istream& in)
     DiskIO::read(in, data.data(), data_size);
   }
 }
+
 
 //------------------------------------------------------------------------------
 

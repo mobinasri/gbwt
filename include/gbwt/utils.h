@@ -37,6 +37,9 @@
 #include <sdsl/sd_vector.hpp>
 #include <sdsl/simple_sds.hpp>
 
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
 
 //#include "third_party/llvm_openmp/src/omp.h"
 
@@ -60,6 +63,8 @@ namespace gbwt
   of nodes, the number of paths, the length of the paths, and the number of
   occurrences of each node to less than 2^32.
 */
+
+typedef boost::interprocess::allocator<char,boost::interprocess::managed_shared_memory::segment_manager>SharedMemCharAllocatorType;
 
 #define GBWT_SAVE_MEMORY
 
