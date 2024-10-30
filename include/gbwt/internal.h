@@ -26,8 +26,6 @@
 #ifndef GBWT_INTERNAL_H
 #define GBWT_INTERNAL_H
 
-#ifndef GBWT_INTERNAL_H
-#define GBWT_INTERNAL_H
 
 #include <array>
 
