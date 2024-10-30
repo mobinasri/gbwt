@@ -26,6 +26,9 @@
 #ifndef GBWT_INTERNAL_H
 #define GBWT_INTERNAL_H
 
+#ifndef GBWT_INTERNAL_H
+#define GBWT_INTERNAL_H
+
 #include <array>
 
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -81,33 +84,9 @@ struct DiskIO
   }
 };
 
-// Serialize an std::vector of integers or simple structs.
-template<class Element>
-size_type
-serializeVector(const std::vector<Element>& data, std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "")
-{
-  sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(v, name, sdsl::util::class_name(data));
-  size_type written_bytes = 0;
-
-  size_type data_size = data.size();
-  written_bytes += sdsl::write_member(data_size, out, child, "size");
-
-  if(data_size > 0)
-  {
-    sdsl::structure_tree_node* data_node =
-      sdsl::structure_tree::add_child(child, "data", sdsl::util::class_name(data[0]));
-    DiskIO::write(out, data.data(), data_size);
-    sdsl::structure_tree::add_size(data_node, data_size * sizeof(Element));
-    written_bytes += data_size * sizeof(Element);
-  }
-
-  sdsl::structure_tree::add_size(child, written_bytes);
-  return written_bytes;
-}
-
 
 // Serialize an std::vector of integers or simple structs.
-template<class Element, class Allocator>
+template<class Element, class Allocator = std::allocator<Element>>
 size_type
 serializeVector(const std::vector<Element, Allocator>& data, std::ostream& out, sdsl::structure_tree_node* v = nullptr, std::string name = "")
 {

@@ -26,6 +26,9 @@
 #ifndef GBWT_SUPPORT_H
 #define GBWT_SUPPORT_H
 
+#ifndef GBWT_SUPPORT_H
+#define GBWT_SUPPORT_H
+
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
@@ -509,15 +512,36 @@ class StringArray
 public:
   typedef gbwt::size_type size_type;
 
-  StringArray(bi::managed_shared_memory* shared_memory = nullptr) : index(1, 0, 1), shared_memory(nullptr){}
-  StringArray(const std::vector<std::string>& source, bi::managed_shared_memory* shared_memory = nullptr);
-  StringArray(const std::map<std::string, std::string>& source, bi::managed_shared_memory* shared_memory = nullptr);
-  StringArray(size_type n, const std::function<size_type(size_type)>& length, const std::function<view_type(size_type)>& sequence, bi::managed_shared_memory* shared_memory = nullptr);
-  StringArray(size_type n, const std::function<bool(size_type)>& choose, const std::function<size_type(size_type)>& length, const std::function<view_type(size_type)>& sequence, bi::managed_shared_memory* shared_memory = nullptr);
-  StringArray(size_type n, const std::function<size_type(size_type)>& length, const std::function<std::string(size_type)>& sequence, bi::managed_shared_memory* shared_memory = nullptr);
+  StringArray(bi::managed_shared_memory* shared_memory = nullptr, std::string object_prefix_in_shared_memory = "") :
+    index(1, 0, 1),
+    strings(nullptr),
+    shared_memory(shared_memory),
+    object_prefix_in_shared_memory(object_prefix_in_shared_memory) {}
+  StringArray(const std::vector<std::string>& source,
+              bi::managed_shared_memory* shared_memory = nullptr,
+              std::string object_prefix_in_shared_memory = "");
+  StringArray(const std::map<std::string, std::string>& source,
+              bi::managed_shared_memory* shared_memory = nullptr,
+              std::string object_prefix_in_shared_memory = "");
+  StringArray(size_type n,
+              const std::function<size_type(size_type)>& length,
+              const std::function<view_type(size_type)>& sequence,
+              bi::managed_shared_memory* shared_memory = nullptr,
+              std::string object_prefix_in_shared_memory = "");
+  StringArray(size_type n,
+              const std::function<bool(size_type)>& choose,
+              const std::function<size_type(size_type)>& length,
+              const std::function<view_type(size_type)>& sequence,
+              bi::managed_shared_memory* shared_memory = nullptr,
+              std::string object_prefix_in_shared_memory = "");
+  StringArray(size_type n,
+              const std::function<size_type(size_type)>& length,
+              const std::function<std::string(size_type)>& sequence,
+              bi::managed_shared_memory* shared_memory = nullptr,
+              std::string object_prefix_in_shared_memory = "");
 
 
-  ~StringArray() {}
+  ~StringArray();
 
   template<typename CharAllocatorTypeOther>
   void swap(StringArray<CharAllocatorTypeOther>& another);
@@ -558,11 +582,12 @@ public:
   std::vector<char, CharAllocatorType>* strings;  // std::vector<char, SharedMemCharAllocatorType>
   bi::managed_shared_memory* shared_memory;
   SharedMemCharAllocatorType* shared_memory_char_allocator;
-  std::string strings_name_in_shared_memory;
-  bool is_strings_loaded_from_shared_memory = false;
+  std::string object_prefix_in_shared_memory;
+  bool is_data_loaded_into_shared_memory = false;
 
-  void find_or_construct_strings_in_shared_memory();
-  void clear_strings_in_shared_memory();
+  void find_strings_from_shared_memory();
+  void construct_strings_in_shared_memory();
+  void check_existence_in_shared_memory();
 
 private:
   // Throws `sdsl::simple_sds::InvalidData` if the checks fail.
