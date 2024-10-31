@@ -26,9 +26,6 @@
 #ifndef GBWT_SUPPORT_H
 #define GBWT_SUPPORT_H
 
-#ifndef GBWT_SUPPORT_H
-#define GBWT_SUPPORT_H
-
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
