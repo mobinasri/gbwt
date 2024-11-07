@@ -551,6 +551,33 @@ public:
   size_t simple_sds_size() const;
 
 
+  StringArray& operator=(const StringArray& another){
+    if (this == &another) return *this;
+    this->index = another.index;
+    this->strings = another.strings;
+    this->shared_memory = another.shared_memory;
+    this->shared_memory_char_allocator = another.shared_memory_char_allocator;
+    this->object_prefix_in_shared_memory = another.object_prefix_in_shared_memory;
+    this->is_data_loaded_into_shared_memory = another.is_data_loaded_into_shared_memory;
+    return *this;
+  }
+
+
+  StringArray(const StringArray& another) {
+    this->index = another.index;
+    this->strings = another.strings;
+    this->shared_memory = another.shared_memory;
+    this->shared_memory_char_allocator = another.shared_memory_char_allocator;
+    this->object_prefix_in_shared_memory = another.object_prefix_in_shared_memory;
+    this->is_data_loaded_into_shared_memory = another.is_data_loaded_into_shared_memory;
+  }
+
+
+  StringArray& operator=(StringArray&& another){
+    if (this == &another) return *this;
+    swap(another);
+    return *this;
+  }
   template<typename CharAllocatorTypeOther>
   bool operator==(const StringArray<CharAllocatorTypeOther>& another) const;
 
@@ -582,6 +609,8 @@ public:
   std::string object_prefix_in_shared_memory;
   bool is_data_loaded_into_shared_memory = false;
 
+  void construct_index_in_shared_memory();
+  void find_index_from_shared_memory();
   void find_strings_from_shared_memory();
   void construct_strings_in_shared_memory();
   void check_existence_in_shared_memory();

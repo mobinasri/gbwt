@@ -23,6 +23,7 @@
   SOFTWARE.
 */
 
+
 #include "absl/log/absl_log.h"
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
@@ -31,20 +32,27 @@
 #include <boost/interprocess/sync/named_mutex.hpp>
 
 #include <gbwt/support.h>
-#include "absl/log/absl_log.h"
+#include <sdsl/int_vector.hpp>
+#include <sdsl/sd_vector.hpp>
 #include <gbwt/internal.h>
 #include <gbwt/utils.h>
+#include <sys/types.h>
 
-#include <cctype>
 #include <concepts>
-#include <cstddef>
 #include <sstream>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <type_traits>
 #include <unordered_set>
+
+#include <map>
+#include <type_traits>
 
 #include <memory>
 #include <string>
 #include <vector>
-
 
 namespace gbwt
 {
@@ -1706,6 +1714,8 @@ StringArray<CharAllocatorType>::StringArray(
     if (this->is_data_loaded_into_shared_memory == true){
       // Load the strings and index from shared memory.
       find_strings_from_shared_memory();
+      find_index_from_shared_memory();
+      return;
     }else{
       // construct a vector for strings in shared memory.
       // this vector will be filled in the next step.
@@ -1722,9 +1732,7 @@ StringArray<CharAllocatorType>::StringArray(
   }
   this->index = sdsl::int_vector<0>(chosen + 1, 0, sdsl::bits::length(total_length));
 
-  if (this->is_data_loaded_into_shared_memory == false){
-    this->strings->reserve(total_length);
-  }
+  this->strings->reserve(total_length);
 
   size_type curr = 0, total = 0;
   for(size_type i = 0; i < n; i++)
@@ -1732,14 +1740,18 @@ StringArray<CharAllocatorType>::StringArray(
     if(!choose(i)) { continue; }
     view_type view = sequence(i);
     this->index[curr] = total; curr++;
-    if (this->is_data_loaded_into_shared_memory == false){
-      this->strings->insert(this->strings->end(),
-                            view.first,
-                            view.first + view.second);
-    }
+    this->strings->insert(this->strings->end(),
+                          view.first,
+                          view.first + view.second);
     total += view.second;
   }
   this->index[chosen] = total;
+  if constexpr
+    (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
+    if (this->is_data_loaded_into_shared_memory == false){
+      construct_index_in_shared_memory();
+    }
+  }
 }
 
 // This has a separate implementation, because we cannot take a view of a temporary string.
@@ -1761,6 +1773,8 @@ StringArray<CharAllocatorType>::StringArray(
     if (this->is_data_loaded_into_shared_memory == true){
       // Load the strings and index from shared memory.
       find_strings_from_shared_memory();
+      find_index_from_shared_memory();
+      return;
     }else{
       // construct a vector for strings in shared memory.
       // this vector will be filled in the next step.
@@ -1775,20 +1789,24 @@ StringArray<CharAllocatorType>::StringArray(
   for(size_type i = 0; i < n; i++) { total_length += length(i); }
 
   this->index = sdsl::int_vector<0>(n + 1, 0, sdsl::bits::length(total_length));
-  if (this->is_data_loaded_into_shared_memory == false){
-    this->strings->reserve(total_length);
-  }
+  this->strings->reserve(total_length);
+
   size_type total = 0;
   for (size_type i = 0; i < n; i++)
   {
     std::string str = sequence(i);
     this->index[i] = total;
-    if (this->is_data_loaded_into_shared_memory == false){
-      this->strings->insert(this->strings->end(), str.begin(), str.end());
-    }
+    this->strings->insert(this->strings->end(), str.begin(), str.end());
     total += str.length();
   }
   this->index[n] = total;
+
+  if constexpr
+    (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
+    if (this->is_data_loaded_into_shared_memory == false){
+      construct_index_in_shared_memory();
+    }
+  }
 }
 
 template <typename CharAllocatorType>
@@ -1796,8 +1814,6 @@ StringArray<CharAllocatorType>::~StringArray(){
     if constexpr
       (std::is_same<CharAllocatorType, std::allocator<char>>::value) {
       if (this->strings != nullptr){
-        ABSL_LOG(INFO) << "StringArray: Destroying StringArray" <<
-            this->strings->size() / 1e9 << " Gbytes";
         this->strings->clear();
         this->strings->shrink_to_fit();
       }
@@ -1809,7 +1825,9 @@ template <typename CharAllocatorTypeOther>
 void StringArray<CharAllocatorType>::swap(StringArray<CharAllocatorTypeOther>& another)
 {
   this->index.swap(another.index);
-  this->strings->swap(*another.strings);
+  std::vector<char, CharAllocatorType>* strings_ = strings;
+  this->strings = another.strings;
+  another.strings = strings_;
 }
 
 template <typename CharAllocatorType>
@@ -1896,6 +1914,11 @@ void StringArray<CharAllocatorType>::simple_sds_load(std::istream& in)
     if (this->is_data_loaded_into_shared_memory == true){
       // Load the strings and index from shared memory.
       find_strings_from_shared_memory();
+      find_index_from_shared_memory();
+      {sdsl::sd_vector<> v; v.simple_sds_load(in);}
+      {sdsl::int_vector<8> comp_to_char; comp_to_char.simple_sds_load(in);}
+      {sdsl::int_vector<> compressed; compressed.simple_sds_load(in);}
+      return;
     }else{
       // construct a vector for strings in shared memory.
       // this vector will be filled in the next step.
@@ -1916,17 +1939,26 @@ void StringArray<CharAllocatorType>::simple_sds_load(std::istream& in)
   // Decompress the strings.
   {
     sdsl::int_vector<> compressed; compressed.simple_sds_load(in);
-    if (this->is_data_loaded_into_shared_memory == false){
-      this->strings->reserve(compressed.size());
-      for(auto c : compressed) { this->strings->push_back(comp_to_char[c]); }
-    }
+    this->strings->reserve(compressed.size());
+    for(auto c : compressed) { this->strings->push_back(comp_to_char[c]); }
   }
+
   this->index = sdsl::int_vector<>(v.ones() + 1, 0, sdsl::bits::length(this->strings->size()));
+
   size_t i = 0;
   for(auto iter = v.one_begin(); iter != v.one_end(); ++iter, i++) { this->index[i] = iter->second; }
   this->index[this->size()] = this->strings->size();
 
   this->sanityChecks();
+
+  // Construct an array in shared memory for saving the index and
+  // copy index data into it.
+  if constexpr
+    (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
+    if (this->is_data_loaded_into_shared_memory == false){
+      construct_index_in_shared_memory();
+    }
+  }
 }
 
 template <typename CharAllocatorType>
@@ -1949,6 +1981,81 @@ size_t StringArray<CharAllocatorType>::simple_sds_size() const
   result += sdsl::int_vector<>::simple_sds_size(this->strings->size(), width);
 
   return result;
+}
+
+
+template <typename CharAllocatorType>
+void StringArray<CharAllocatorType>::construct_index_in_shared_memory()
+{
+  if constexpr
+    (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
+    if (shared_memory != nullptr){
+        std::string index_data_name =
+            this->object_prefix_in_shared_memory + "_index_data";
+        std::string index_width_name =
+            this->object_prefix_in_shared_memory + "_index_width";
+        std::string index_size_name =
+            this->object_prefix_in_shared_memory + "_index_size";
+        uint64_t capacity_bytes = this->index.capacity() / 8;
+        uint64_t number_of_elements = capacity_bytes / 8;
+        uint64_t* index_data =
+            shared_memory->construct<uint64_t>
+            (index_data_name.c_str())[number_of_elements]();
+        uint8_t* index_width =
+            shared_memory->construct<uint8_t>
+            (index_width_name.c_str())();
+        uint64_t* index_size =
+            shared_memory->construct<uint64_t>
+            (index_size_name.c_str())();
+        ABSL_LOG(INFO) << "capacity_bytes: " << capacity_bytes;
+        memcpy(index_data, index.data(), capacity_bytes);
+        *index_width = index.width();
+        *index_size = index.bit_size();
+        ABSL_LOG(INFO) <<
+            "Saved index data into shared memory:" <<
+            capacity_bytes / 1e9<< " Gbytes";
+    }else{
+      ABSL_LOG(INFO) <<
+          "construct_index_in_shared_memory: Shared memory is null";
+    }
+  }
+}
+
+template <typename CharAllocatorType>
+void StringArray<CharAllocatorType>::find_index_from_shared_memory()
+{
+  if constexpr
+    (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
+    if (shared_memory != nullptr){
+        std::string index_data_name =
+            this->object_prefix_in_shared_memory + "_index_data";
+        std::string index_width_name =
+            this->object_prefix_in_shared_memory + "_index_width";
+        std::string index_size_name =
+            this->object_prefix_in_shared_memory + "_index_size";
+        uint64_t* index_data =
+            shared_memory->find<uint64_t>(index_data_name.c_str()).first;
+        uint8_t* index_width =
+            shared_memory->find<uint8_t>(index_width_name.c_str()).first;
+        uint64_t* index_size =
+            shared_memory->find<uint64_t>(index_size_name.c_str()).first;
+        ABSL_LOG(INFO) <<
+            "Loading index data from shared memory ...";
+        bool loaded_from_shared_memory = true;
+        this->index = sdsl::int_vector<>(*index_size,
+                                *index_width,
+                                index_data,
+                                loaded_from_shared_memory);
+
+        uint64_t capacity_bytes = this->index.capacity() / 8;
+        ABSL_LOG(INFO) <<
+            "Loaded index data from shared memory:" <<
+            capacity_bytes / 1e9<< " Gbytes" << "mem" << static_cast<int>(this->index.loaded_from_shared_memory());
+    }else{
+      ABSL_LOG(INFO) <<
+          "find_index_from_shared_memory: Shared memory is null";
+    }
+  }
 }
 
 
