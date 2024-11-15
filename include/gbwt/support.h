@@ -550,34 +550,13 @@ public:
   void simple_sds_load(std::istream& in);
   size_t simple_sds_size() const;
 
+  // Copy assignment operator
+  StringArray& operator=(const StringArray& another);
+  // Copy constructor
+  StringArray(const StringArray& another);
+  // Move assignment operator
+  StringArray& operator=(StringArray&& another);
 
-  StringArray& operator=(const StringArray& another){
-    if (this == &another) return *this;
-    this->index = another.index;
-    this->strings = another.strings;
-    this->shared_memory = another.shared_memory;
-    this->shared_memory_char_allocator = another.shared_memory_char_allocator;
-    this->object_prefix_in_shared_memory = another.object_prefix_in_shared_memory;
-    this->is_data_loaded_into_shared_memory = another.is_data_loaded_into_shared_memory;
-    return *this;
-  }
-
-
-  StringArray(const StringArray& another) {
-    this->index = another.index;
-    this->strings = another.strings;
-    this->shared_memory = another.shared_memory;
-    this->shared_memory_char_allocator = another.shared_memory_char_allocator;
-    this->object_prefix_in_shared_memory = another.object_prefix_in_shared_memory;
-    this->is_data_loaded_into_shared_memory = another.is_data_loaded_into_shared_memory;
-  }
-
-
-  StringArray& operator=(StringArray&& another){
-    if (this == &another) return *this;
-    swap(another);
-    return *this;
-  }
   template<typename CharAllocatorTypeOther>
   bool operator==(const StringArray<CharAllocatorTypeOther>& another) const;
 

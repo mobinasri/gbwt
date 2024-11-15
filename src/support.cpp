@@ -53,6 +53,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace gbwt
 {
@@ -1814,20 +1815,25 @@ StringArray<CharAllocatorType>::~StringArray(){
     if constexpr
       (std::is_same<CharAllocatorType, std::allocator<char>>::value) {
       if (this->strings != nullptr){
-        this->strings->clear();
-        this->strings->shrink_to_fit();
+        delete this->strings;
       }
     }
 }
 
 template <typename CharAllocatorType>
 template <typename CharAllocatorTypeOther>
-void StringArray<CharAllocatorType>::swap(StringArray<CharAllocatorTypeOther>& another)
+void StringArray<CharAllocatorType>::swap(
+    StringArray<CharAllocatorTypeOther>& another)
 {
-  this->index.swap(another.index);
-  std::vector<char, CharAllocatorType>* strings_ = strings;
-  this->strings = another.strings;
-  another.strings = strings_;
+  std::swap(this->index, another.index);
+  std::swap(this->strings, another.strings);
+  std::swap(this->shared_memory, another.shared_memory);
+  std::swap(this->shared_memory_char_allocator,
+            another.shared_memory_char_allocator);
+  std::swap(this->object_prefix_in_shared_memory,
+            another.object_prefix_in_shared_memory);
+  std::swap(this->is_data_loaded_into_shared_memory,
+            another.is_data_loaded_into_shared_memory);
 }
 
 template <typename CharAllocatorType>
@@ -2050,7 +2056,7 @@ void StringArray<CharAllocatorType>::find_index_from_shared_memory()
         uint64_t capacity_bytes = this->index.capacity() / 8;
         ABSL_LOG(INFO) <<
             "Loaded index data from shared memory:" <<
-            capacity_bytes / 1e9<< " Gbytes" << "mem" << static_cast<int>(this->index.loaded_from_shared_memory());
+            capacity_bytes / 1e9<< " Gbytes";
     }else{
       ABSL_LOG(INFO) <<
           "find_index_from_shared_memory: Shared memory is null";
@@ -2070,9 +2076,6 @@ void StringArray<CharAllocatorType>::find_strings_from_shared_memory()
       this->shared_memory_char_allocator =
             new SharedMemCharAllocatorType(
                 this->shared_memory->get_segment_manager());
-      ABSL_LOG(INFO) <<
-          "find_strings_from_shared_memory: " <<
-          "Strings are already loaded in shared memory. ";
       this->strings =
         shared_memory->find<std::vector<char, CharAllocatorType>>
         (strings_name_in_shared_memory.c_str()).first;
@@ -2114,11 +2117,20 @@ void StringArray<CharAllocatorType>::check_existence_in_shared_memory(){
   if constexpr
     (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
     if (shared_memory != nullptr){
-        std::string existence_name_in_shared_memory =
+      std::string existence_name_in_shared_memory =
             this->object_prefix_in_shared_memory + "_loaded";
-        this->is_data_loaded_into_shared_memory =
-            *shared_memory->find_or_construct<bool>
+      bool* bool_ptr = shared_memory->find_or_construct<bool>
             (existence_name_in_shared_memory.c_str())(false);
+      this->is_data_loaded_into_shared_memory = *bool_ptr;
+      if (this->is_data_loaded_into_shared_memory == true){
+          ABSL_LOG(INFO) <<
+              "check_existence_in_shared_memory: " <<
+              "Strings are already loaded in shared memory. ";
+        }else{
+          ABSL_LOG(INFO) <<
+              "check_existence_in_shared_memory: " <<
+              "Strings are not loaded in shared memory. ";
+        }
     }else{
       ABSL_LOG(INFO) <<
           "check_existence_in_shared_memory: Shared memory is null";
@@ -2150,6 +2162,48 @@ void StringArray<CharAllocatorType>::remove(size_type i)
   }
   this->index.resize(this->index.size() - 1);
   sdsl::util::bit_compress(this->index);
+}
+
+// Copy assignment operator
+template <typename CharAllocatorType>
+StringArray<CharAllocatorType>& StringArray<CharAllocatorType>::operator=(
+    const StringArray<CharAllocatorType>& another) {
+  if (this == &another) return *this;  // Avoid self-assignment
+  // Copy non-dynamic members
+  this->index = another.index;
+  this->shared_memory = another.shared_memory;
+  this->shared_memory_char_allocator =
+      another.shared_memory_char_allocator;
+  this->object_prefix_in_shared_memory =
+      another.object_prefix_in_shared_memory;
+  this->is_data_loaded_into_shared_memory =
+      another.is_data_loaded_into_shared_memory;
+
+  if constexpr
+    (std::is_same<CharAllocatorType, SharedMemCharAllocatorType>::value) {
+    // Directly copy the strings pointer for shared memory
+    this->strings = another.strings;
+  } else {
+      delete this->strings;
+      this->strings = new std::vector<char>(*another.strings);
+  }
+  return *this;
+}
+
+// Copy constructor
+template <typename CharAllocatorType>
+StringArray<CharAllocatorType>::StringArray(
+    const StringArray<CharAllocatorType>& another) {
+  *this = another;
+}
+
+// Move assignment operator
+template <typename CharAllocatorType>
+StringArray<CharAllocatorType>& StringArray<CharAllocatorType>::operator=(
+    StringArray<CharAllocatorType>&& another){
+  if (this == &another) return *this;
+  swap(another);
+  return *this;
 }
 
 
